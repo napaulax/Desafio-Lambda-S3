@@ -1,0 +1,32 @@
+# Comandos sugestivos para executar no LocalStack (docker) com awslocal
+awslocal s3api create-bucket --bucket notas-fiscais-upload
+
+awslocal dynamodb create-table \
+  --table-name NotasFiscais \
+  --attribute-definitions AttributeName=id,AttributeType=S \
+  --key-schema AttributeName=id,KeyType=HASH \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+awslocal lambda create-function \
+  --function-name ProcessarNotasFiscais \
+  --runtime python3.9 \
+  --role arn:aws:iam::000000000000:role/lambda-role \
+  --handler lambda_function.lambda_handler \
+  --zip-file fileb://lambda_function.zip
+
+awslocal lambda add-permission \
+  --function-name ProcessarNotasFiscais \
+  --statement-id s3-trigger-permission \
+  --action \"lambda:InvokeFunction\" \
+  --principal s3.amazonaws.com \
+  --source-arn \"arn:aws:s3:::notas-fiscais-upload\"
+
+awslocal s3api put-bucket-notification-configuration \
+  --bucket notas-fiscais-upload \
+  --notification-configuration file://scripts/notification_roles.json
+
+# Enviar arquivo de teste
+awslocal s3 cp notas_fiscais_2025.json s3://notas-fiscais-upload
+
+# Verificar tabela DynamoDB
+awslocal dynamodb scan --table-name NotasFiscais
